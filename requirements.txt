@@ -1,7 +1,7 @@
+streamlit
 st-gsheets-connection
 pandasql
 time
-streamlit
 pandas
 Pillow
 icalendar
