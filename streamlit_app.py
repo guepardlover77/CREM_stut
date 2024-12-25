@@ -10,24 +10,10 @@ from icalendar import Calendar, Event
 import time
 
 
-# --- Constants ---
-DATA_DIR = "user_data"
-if not os.path.exists(DATA_DIR):
-    os.makedirs(DATA_DIR)
-
 # --- Helper Functions ---
 def hash_password(password):
     return hashlib.sha256(password.encode()).hexdigest()
 
-def save_user_data(username, data):
-    filepath = os.path.join(DATA_DIR, f"{username}.csv")
-    data.to_csv(filepath, index=False)
-
-def load_user_data(username):
-    filepath = os.path.join(DATA_DIR, f"{username}.csv")
-    if os.path.exists(filepath):
-        return pd.read_csv(filepath)
-    return pd.DataFrame(columns=["date", "maths", "biologie", "sciences_humaines"], dtype="int")
 
 def parse_icalendar(file):
     """
@@ -94,41 +80,6 @@ def create_icalendar_file(revision_schedule):
         calendar.add_component(event)
 
     return calendar.to_ical()
-
-FORUM_DIR = "forum_data"
-if not os.path.exists(FORUM_DIR):
-    os.makedirs(FORUM_DIR)
-
-
-def save_forum_message(username, title, message, image=None):
-    filepath = os.path.join(FORUM_DIR, f"{username}_forum.csv")
-    if not os.path.exists(filepath):
-        forum_data = pd.DataFrame(columns=["timestamp", "title", "message", "image_path"])
-    else:
-        forum_data = pd.read_csv(filepath)
-
-    image_path = None
-    if image:
-        image_filename = f"{username}_{datetime.now().strftime('%Y%m%d%H%M%S')}.png"
-        image_path = os.path.join(FORUM_DIR, image_filename)
-        image.save(image_path)
-
-    new_message = {
-        "timestamp": datetime.now(),
-        "title": title,
-        "message": message,
-        "image_path": image_path,
-    }
-    forum_data = pd.concat([forum_data, pd.DataFrame([new_message])], ignore_index=True)
-    forum_data.to_csv(filepath, index=False)
-
-
-def load_forum_messages(username):
-    filepath = os.path.join(FORUM_DIR, f"{username}_forum.csv")
-    if os.path.exists(filepath):
-        return pd.read_csv(filepath)
-    return pd.DataFrame(columns=["timestamp", "title", "message", "image_path"])
-
 
 
 # --- Connexion Google Sheets ---
@@ -248,10 +199,10 @@ if "authenticated" in st.session_state and st.session_state["authenticated"]:
 
 
     with tab2:
-        # Planning de révisions
         st.header("Génération d'un planning de révisions")
-        uploaded_file = st.file_uploader("Téléversez votre fichier .ics", type="ics")
-
+        uploaded_file = open("ADECal.ics", "rb")
+        
+        
         if uploaded_file:
             events = parse_icalendar(uploaded_file)
             st.write("Emploi du temps importé :", events)
