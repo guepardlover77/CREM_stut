@@ -1,7 +1,7 @@
-pip==24.3.1
 streamlit
 st-gsheets-connection
 time
 pandas
 Pillow
 icalendar
+git+https://github.com/streamlit/gsheets-connection
