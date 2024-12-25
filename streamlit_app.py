@@ -1,15 +1,13 @@
 import streamlit as st
+from streamlit_gsheets import GSheetsConnection
 import pandas as pd
+from datetime import datetime
+from PIL import Image
 import hashlib
 import os
-from datetime import datetime, timedelta, time
+from datetime import timedelta, time
 from icalendar import Calendar, Event
-from PIL import Image
 import time
-
-
-
-
 
 
 # --- Constants ---
@@ -132,14 +130,6 @@ def load_forum_messages(username):
     return pd.DataFrame(columns=["timestamp", "title", "message", "image_path"])
 
 
-
-
-import streamlit as st
-from streamlit_gsheets import GSheetsConnection
-import pandas as pd
-from datetime import datetime
-from PIL import Image
-import os
 
 # --- Connexion Google Sheets ---
 conn = st.connection("gsheets", type=GSheetsConnection)
