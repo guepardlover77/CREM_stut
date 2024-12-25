@@ -1,7 +1,6 @@
 streamlit
-st-gsheets-connection
+streamlit_gsheets
 time
 pandas
 Pillow
 icalendar
-git+https://github.com/streamlit/gsheets-connection
