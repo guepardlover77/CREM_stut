@@ -1,6 +1,5 @@
 streamlit
 st-gsheets-connection
-pandasql
 time
 pandas
 Pillow
