@@ -1,0 +1,8 @@
+st-gsheets-connection
+pandasql
+time
+streamlit
+streamlit-gsheets
+pandas
+Pillow
+icalendar
