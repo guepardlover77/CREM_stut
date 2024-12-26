@@ -1,13 +1,9 @@
 import streamlit as st
 from streamlit_gsheets import GSheetsConnection
 import pandas as pd
-from datetime import datetime
-from PIL import Image
 import hashlib
 import os
-from datetime import timedelta, time
-from icalendar import Calendar, Event
-import time
+from datetime import datetime
 
 
 # --- Helper Functions ---
@@ -15,71 +11,28 @@ def hash_password(password):
     return hashlib.sha256(password.encode()).hexdigest()
 
 
-def parse_icalendar(file):
+def save_image(image, username):
     """
-    Parse ICalendar file and extract events.
+    Save uploaded image to a permanent directory.
+    Validate file size and store image if within limit.
     """
-    calendar = Calendar.from_ical(file.read())
-    events = []
-    for component in calendar.walk():
-        if component.name == "VEVENT":
-            start = component.get("dtstart").dt
-            summary = component.get("summary")
-            events.append({"start": start, "summary": summary})
-    return pd.DataFrame(events)
+    MAX_SIZE_MB = 2
+    forum_images_dir = "forum_images"
+    os.makedirs(forum_images_dir, exist_ok=True)  # Ensure directory exists
 
-def generate_revision_schedule_with_constraints(events, method, start_time, end_time, start_date, end_date, session_duration):
-    """
-    Generate a revision schedule with user-defined constraints and session duration.
-    """
-    lunch_start = time(12, 0)
-    lunch_end = time(14, 0)
+    # Check file size
+    image.seek(0, os.SEEK_END)
+    size_mb = image.tell() / (1024 * 1024)
+    image.seek(0)  # Reset pointer for reading
+    if size_mb > MAX_SIZE_MB:
+        raise ValueError(f"Le fichier est trop volumineux ({size_mb:.2f} Mo). La taille maximale est de {MAX_SIZE_MB} Mo.")
 
-    revision_schedule = []
-    for _, event in events.iterrows():
-        for i in range(1, 6):  # Generate 5 revision sessions
-            if method == "Méthode des J":
-                revision_time = event["start"] + timedelta(days=i**2)
-            elif method == "Leitner":
-                revision_time = event["start"] + timedelta(days=i)
-            else:  # Répétition classique
-                revision_time = event["start"] + timedelta(days=2 * i)
-
-            # Ensure the revision time is within the user's specified date range
-            if start_date <= revision_time.date() <= end_date:
-                revision_start = datetime.combine(revision_time.date(), start_time)
-                revision_end = datetime.combine(revision_time.date(), end_time)
-                revision_time_only = revision_time.time()
-
-                # Exclude lunch break and outside user-defined hours
-                if (
-                    start_time <= revision_time_only <= end_time
-                    and not (lunch_start <= revision_time_only < lunch_end)
-                ):
-                    revision_schedule.append({
-                        "Date": revision_time,
-                        "Cours": event["summary"],
-                        "Méthode": method,
-                        "Durée (minutes)": session_duration
-                    })
-    return pd.DataFrame(revision_schedule)
-
-def create_icalendar_file(revision_schedule):
-    """
-    Create an iCalendar (.ics) file from the revision schedule.
-    """
-    calendar = Calendar()
-    for _, row in revision_schedule.iterrows():
-        event = Event()
-        start_datetime = row["Date"]
-        duration = timedelta(minutes=row["Durée (minutes)"])
-        event.add("summary", f"Révision : {row['Cours']}")
-        event.add("dtstart", start_datetime)
-        event.add("dtend", start_datetime + duration)
-        event.add("description", f"Méthode : {row['Méthode']}")
-        calendar.add_component(event)
-
-    return calendar.to_ical()
+    # Save image
+    image_filename = f"{username}_{datetime.now().strftime('%Y%m%d%H%M%S')}.png"
+    image_path = os.path.join(forum_images_dir, image_filename)
+    with open(image_path, "wb") as f:
+        f.write(image.read())
+    return image_path
 
 
 # --- Connexion Google Sheets ---
@@ -135,7 +88,7 @@ if "authenticated" in st.session_state and st.session_state["authenticated"]:
     st.title(f"Bienvenue, {st.session_state['username']} !")
 
     # Onglets
-    tab1, tab2, tab3, tab4 = st.tabs(["📊 Suivi des QCM", "📅 Planning de révisions", "💬 Forum", "Chats"])
+    tab1, tab2, tab3, tab4 = st.tabs(["📊 Suivi des QCM", "💬 Forum", "🐈 Chats", "📝 Task Manager"])
 
     # --- Suivi des QCM ---
     with tab1:
@@ -197,45 +150,8 @@ if "authenticated" in st.session_state and st.session_state["authenticated"]:
             st.plotly_chart(fig, use_container_width=True)
 
 
-
-    with tab2:
-        st.header("Génération d'un planning de révisions")
-        uploaded_file = open("ADECal.ics", "rb")
-        
-        
-        if uploaded_file:
-            events = parse_icalendar(uploaded_file)
-            st.write("Emploi du temps importé :", events)
-
-            st.subheader("Paramètres du planning de révisions")
-            start_date = st.date_input("Choisissez une date de début")
-            end_date = st.date_input("Choisissez une date de fin")
-            start_time = st.time_input("Début de journée", value=datetime.strptime("08:00", "%H:%M").time())
-            end_time = st.time_input("Fin de journée", value=datetime.strptime("20:00", "%H:%M").time())
-            session_duration = st.number_input("Durée de chaque session (minutes)", min_value=10, max_value=120,
-                                               value=30)
-            method = st.selectbox("Méthode de révision", ["Méthode des J", "Leitner", "Répétition classique"])
-
-            if st.button("Générer le planning"):
-                if start_date > end_date:
-                    st.error("La date de début doit être antérieure ou égale à la date de fin.")
-                else:
-                    revision_schedule = generate_revision_schedule_with_constraints(
-                        events, method, start_time, end_time, start_date, end_date, session_duration
-                    )
-                    st.write("Planning généré :", revision_schedule)
-
-                    # Download as CSV
-                    st.download_button("Télécharger le planning (CSV)", revision_schedule.to_csv(index=False),
-                                       "planning_revisions.csv", "text/csv")
-
-                    # Create and download iCalendar file
-                    icalendar_file = create_icalendar_file(revision_schedule)
-                    st.download_button("Télécharger le planning (iCalendar)", icalendar_file,
-                                       "planning_revisions.ics", "text/calendar")
-
     # --- Forum ---
-    with tab3:
+    with tab2:
         st.header("Forum")
 
         # Ajouter un message au forum
@@ -244,16 +160,18 @@ if "authenticated" in st.session_state and st.session_state["authenticated"]:
             title = st.text_input("Titre du message")
             message = st.text_area("Votre message")
             tags = st.text_input("Tags (séparés par des virgules)")
-            image = st.file_uploader("Ajouter une image (optionnel)", type=["png", "jpg", "jpeg"])
+            image = st.file_uploader("Ajouter une image (optionnel, max. 2 Mo)", type=["png", "jpg", "jpeg"])
             post_button = st.form_submit_button("Poster")
 
         if post_button and title.strip() and message.strip():
             image_path = None
             if image:
-                image_filename = f"{st.session_state['username']}_{datetime.now().strftime('%Y%m%d%H%M%S')}.png"
-                image_path = os.path.join("temp_images", image_filename)
-                os.makedirs("temp_images", exist_ok=True)
-                Image.open(image).save(image_path)
+                try:
+                    image_path = save_image(image, st.session_state["username"])
+                except ValueError as e:
+                    st.error(str(e))
+                else:
+                    st.success("Image téléchargée avec succès.")
 
             new_message = {
                 "timestamp": datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
@@ -266,12 +184,11 @@ if "authenticated" in st.session_state and st.session_state["authenticated"]:
             append_to_sheet("forum_data", new_message)
             st.success("Message posté avec succès !")
 
-        # Recherche de messages
         st.subheader("Rechercher des messages")
         search_query = st.text_input("Rechercher par mot-clé ou tag")
         search_button = st.button("Rechercher")
 
-        # Charger les messages
+        # Affichage des messages
         forum_data = read_sheet("forum_data")
         filtered_messages = forum_data
 
@@ -283,7 +200,6 @@ if "authenticated" in st.session_state and st.session_state["authenticated"]:
                 forum_data["tags"].str.lower().str.contains(search_query)
                 ]
 
-        # Affichage des messages
         st.subheader("Fil de discussion")
         if filtered_messages.empty:
             st.info("Aucun message trouvé.")
@@ -297,8 +213,35 @@ if "authenticated" in st.session_state and st.session_state["authenticated"]:
                     else:
                         st.write("Pas d'image associée à ce message.")
 
+                    # Ajouter une réponse au message
+                    st.subheader("Répondre au message")
+                    with st.form(f"reply_form_{row['timestamp']}"):
+                        reply_message = st.text_area("Votre réponse")
+                        reply_button = st.form_submit_button("Répondre")
+
+                    if reply_button and reply_message.strip():
+                        new_reply = {
+                            "timestamp": datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                            "username": st.session_state["username"],
+                            "parent_timestamp": row["timestamp"],
+                            "reply": reply_message,
+                        }
+                        append_to_sheet("forum_replies", new_reply)
+                        st.success("Réponse ajoutée avec succès !")
+
+                    # Afficher les réponses existantes
+                    st.subheader("Réponses")
+                    replies_data = read_sheet("forum_replies")
+                    message_replies = replies_data[replies_data["parent_timestamp"] == row["timestamp"]]
+
+                    if message_replies.empty:
+                        st.info("Aucune réponse pour ce message.")
+                    else:
+                        for _, reply in message_replies.iterrows():
+                            st.write(f"- {reply['reply']} (**{reply['username']}**, le {reply['timestamp']})")
+
     # --- Onglet ultra psychédélique ---
-    with tab4:
+    with tab3:
         st.header("🌈 Vortex Félin Psychédélique 🌀")
 
 
@@ -403,6 +346,72 @@ if "authenticated" in st.session_state and st.session_state["authenticated"]:
             </div>
         """, unsafe_allow_html=True)
 
+    with tab4:
+        st.header("📝 Task Manager")
+
+        # Lire les données de tâches
+        task_data = read_sheet("task_data")
+
+        # Filtrer les tâches par utilisateur
+        if "username" in task_data.columns:
+            user_tasks = task_data[task_data["username"] == st.session_state["username"]]
+        else:
+            st.error("La colonne 'username' est absente des données de tâches. Veuillez vérifier la feuille Google Sheets.")
+            st.stop()
+
+        # Tri des tâches
+        st.subheader("Options de tri")
+        sort_by = st.selectbox("Trier les tâches par :", ["Date d'échéance", "Statut"])
+        if sort_by == "Date d'échéance":
+            user_tasks = user_tasks.sort_values(by="due_date")
+        elif sort_by == "Statut":
+            user_tasks = user_tasks.sort_values(by="status")
+
+        # Formulaire pour ajouter une nouvelle tâche
+        with st.form("add_task_form"):
+            task_title = st.text_input("Titre de la tâche")
+            task_description = st.text_area("Description de la tâche")
+            due_date = st.date_input("Date d'échéance")
+            add_task_button = st.form_submit_button("Ajouter la tâche")
+
+        if add_task_button and task_title.strip() and task_description.strip():
+            new_task = {
+                "username": st.session_state["username"],
+                "title": task_title,
+                "description": task_description,
+                "due_date": due_date.strftime('%Y-%m-%d'),
+                "status": "En cours",
+            }
+            append_to_sheet("task_data", new_task)
+            st.success("Tâche ajoutée avec succès !")
+
+        # Afficher les tâches existantes
+        st.subheader("Vos tâches")
+        if user_tasks.empty:
+            st.info("Aucune tâche pour le moment. Ajoutez-en une ci-dessus.")
+        else:
+            for index, task in user_tasks.iterrows():
+                status_icon = "✅" if task['status'] == "Terminée" else "🕒"
+                markdown_content = f"""
+                ### {status_icon} {task['title']}  
+                **Échéance :** {task['due_date']}  
+                **Statut :** {task['status']}  
+                {task['description']}
+                """
+                st.markdown(markdown_content)
+
+                # Mettre en évidence les tâches en cours
+                if task['status'] == "En cours":
+                    st.markdown("<div style='background-color: #fff3cd; padding: 10px; border-radius: 5px;'>\
+                                Cette tâche est toujours en cours. Pensez à la terminer avant l'échéance !</div>",
+                                unsafe_allow_html=True)
+
+                # Marquer la tâche comme terminée
+                if task["status"] == "En cours":
+                    if st.button(f"Marquer comme terminée", key=f"complete_{index}"):
+                        task_data.loc[task_data.index == index, "status"] = "Terminée"
+                        update_sheet("task_data", task_data)
+                        st.success("Tâche marquée comme terminée.")
 
 else:
     st.info("Veuillez vous connecter pour accéder à votre suivi.")
