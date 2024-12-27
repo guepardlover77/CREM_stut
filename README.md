@@ -46,7 +46,7 @@ This Streamlit application provides a comprehensive interface for QCM tracking, 
 ### Steps
 1. Clone the repository:
    ```bash
-   git clone [<repository-url>](https://github.com/guepardlover77/CREM_stut.git)
+   git clone https://github.com/guepardlover77/CREM_stut.git
    cd CREM_stut
    ```
 
