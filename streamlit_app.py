@@ -205,7 +205,7 @@ if st.session_state.get("authenticated"):
     create_dashboard_metrics()
 
     # Onglets
-    tab1, tab2, tab3, tab4 = st.tabs(["📊 Suivi des QCM", "💬 Forum", "🐈 Chats", "📝 Task Manager"])
+    tab1, tab2, tab3 = st.tabs(["📊 Suivi des QCM", "💬 Forum", "📝 Task Manager"])
 
     # --- Suivi des QCM ---
     with tab1:
@@ -360,113 +360,8 @@ if st.session_state.get("authenticated"):
 
                             st.write(f"- {reply['reply']} [**{role}**, le {reply['timestamp']}]")
 
-    # --- Onglet ultra psychédélique ---
+
     with tab3:
-        st.header("🌈 Vortex Félin Psychédélique 🌀")
-
-
-        # CSS super psychédélique
-        st.markdown("""
-            <style>
-            @keyframes spin {
-                0% { transform: rotate(0deg); }
-                100% { transform: rotate(360deg); }
-            }
-
-            @keyframes colors {
-                0% { background-color: #FF0000; }
-                25% { background-color: #00FF00; }
-                50% { background-color: #0000FF; }
-                75% { background-color: #FFFF00; }
-                100% { background-color: #FF00FF; }
-            }
-
-            @keyframes pulse {
-                0%, 100% { transform: scale(1); }
-                50% { transform: scale(1.2); }
-            }
-
-            @keyframes background-move {
-                0% { background-position: 0% 50%; }
-                50% { background-position: 100% 50%; }
-                100% { background-position: 0% 50%; }
-            }
-
-            body {
-                animation: background-move 15s infinite linear;
-                background: linear-gradient(270deg, #ff6ec7, #ffc260, #6ec7ff, #a760ff);
-                background-size: 400% 400%;
-            }
-
-            .psychedelic-container {
-                animation: colors 5s infinite, spin 15s linear infinite, pulse 2s infinite;
-                border: 5px dashed #fff;
-                border-radius: 50%;
-                box-shadow: 0 0 50px #fff, 0 0 100px #fff, 0 0 150px #fff;
-                width: 300px;
-                height: 300px;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                margin: 20px auto;
-            }
-
-            .psychedelic-container img {
-                width: 100%;
-                border-radius: 50%;
-            }
-
-            .text-rainbow {
-                font-size: 2rem;
-                font-weight: bold;
-                text-align: center;
-                animation: colors 2s infinite, pulse 1s infinite alternate;
-            }
-
-            .video-container {
-                margin: 20px auto;
-                text-align: center;
-                animation: spin 20s linear infinite;
-            }
-
-            .video-container video {
-                width: 80%;
-                border-radius: 20px;
-                box-shadow: 0 0 30px #ff33ff;
-            }
-            </style>
-        """, unsafe_allow_html=True)
-
-        # Arrière-plan sonore
-        audio_file = "https://www.myinstants.com/media/sounds/meow-mix.mp3"
-        st.markdown(f"""
-            <audio autoplay loop>
-                <source src="{audio_file}" type="audio/mpeg">
-                Votre navigateur ne supporte pas l'audio.
-            </audio>
-        """, unsafe_allow_html=True)
-
-        # Contenu psychédélique
-        st.markdown("""
-            <div class="text-rainbow">✨ Chats cosmiques en rotation ✨</div>
-            <div class="psychedelic-container">
-                <img src="https://media.giphy.com/media/JIX9t2j0ZTN9S/giphy.gif" alt="Chat hypnotique">
-            </div>
-            <div class="psychedelic-container">
-                <img src="https://media.giphy.com/media/mlvseq9yvZhba/giphy.gif" alt="Chat galaxie">
-            </div>
-            <div class="video-container">
-                <video autoplay loop muted>
-                    <source src="https://media.giphy.com/media/3oriO0OEd9QIDdllqo/giphy.mp4" type="video/mp4">
-                    Votre navigateur ne supporte pas la vidéo.
-                </video>
-            </div>
-            <div class="psychedelic-container">
-                <img src="https://media.giphy.com/media/ICOgUNjpvO0PC/giphy.gif" alt="Chat cosmique">
-            </div>
-        """, unsafe_allow_html=True)
-
-    with tab4:
         st.header("📝 Task Manager")
 
         # Lire les données de tâches
