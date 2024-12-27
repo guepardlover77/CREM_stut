@@ -5,6 +5,11 @@ import hashlib
 import os
 from datetime import datetime
 
+st.set_page_config(page_title="Tut-v2 | CREM", page_icon="logo-tut.png", menu_items={
+    'Get Help': 'https://www.crem.fr/contact/',
+    'Report a bug': "mailto:web@crem.fr",
+    'About': "# Bienvenue dans votre espace Tutorat ! Faites en bon usage ;)"})
+
 
 # --- Helper Functions ---
 def hash_password(password):
