@@ -188,16 +188,24 @@ if not st.session_state.get("authenticated"):
             st.error("Nom d'utilisateur ou mot de passe incorrect.")
 else:
     st.markdown(f"""
-            <div class="welcome-message">
-                Bienvenue, {st.session_state['username']} !
-            </div>
-        """, unsafe_allow_html=True)
+        <div class="welcome-message">
+            Bienvenue, {st.session_state['username']} !
+        </div>
+    """, unsafe_allow_html=True)
 
     # Ajouter le logo
     if logo is not None:
         st.sidebar.markdown("<div class='sidebar-bottom'>", unsafe_allow_html=True)
         st.sidebar.image(logo, use_container_width=True, output_format="PNG")
         st.sidebar.markdown("</div>", unsafe_allow_html=True)
+
+    # Bouton de déconnexion
+    logout_button = st.sidebar.button("Se déconnecter")
+    if logout_button:
+        st.session_state["authenticated"] = False
+        st.session_state["username"] = None
+        st.success("Déconnexion réussie !")
+        st.rerun()
 
 
 # --- Application ---
