@@ -42,21 +42,19 @@ conn = st.connection("gsheets", type=GSheetsConnection)
 # --- Fonctions Utilitaires ---
 def read_sheet(sheet_name):
     """Lit les données d'une feuille Google Sheets en DataFrame."""
-    return conn.read(worksheet=sheet_name)
-
+    return conn.read(worksheet=sheet_name, ttl=None)
 
 def update_sheet(sheet_name, data):
     """Met à jour une feuille Google Sheets avec un DataFrame."""
     conn.update(worksheet=sheet_name, data=data)
-
+    st.cache_data.clear()
+    st.rerun()
 
 def append_to_sheet(sheet_name, row):
     """Ajoute une ligne à une feuille Google Sheets."""
     data = read_sheet(sheet_name)
     data = pd.concat([data, pd.DataFrame([row])], ignore_index=True)
     update_sheet(sheet_name, data)
-
-
 
 with st.sidebar.expander("Créer un compte"):
     new_username = st.text_input("Nouveau nom d'utilisateur")
@@ -72,7 +70,8 @@ if create_account_button and new_username and new_password:
         new_user = {"username": new_username, "password": hashed_password}
         append_to_sheet("user_data", new_user)
         st.success("Compte créé avec succès ! Vous pouvez maintenant vous connecter.")
-        user_data = read_sheet("user_data")
+        st.cache_data.clear()
+        st.rerun()
 
 
 # --- Authentification ---
@@ -85,6 +84,8 @@ login_button = st.sidebar.button("Se connecter")
 if username and password and login_button:
     st.session_state["authenticated"] = True
     st.session_state["username"] = username
+    st.cache_data.clear()
+    st.rerun()
 
 # --- Application ---
 if "authenticated" in st.session_state and st.session_state["authenticated"]:
@@ -124,8 +125,8 @@ if "authenticated" in st.session_state and st.session_state["authenticated"]:
             }
             append_to_sheet("qcm_data", new_entry)
             st.success("Données ajoutées avec succès !")
-            qcm_data = read_sheet("qcm_data")
-            user_qcm_data = qcm_data[qcm_data["username"] == st.session_state["username"]]
+            st.cache_data.clear()
+            st.rerun()
 
         if not user_qcm_data.empty:
             st.subheader("Progrès par matière")
@@ -188,8 +189,6 @@ if "authenticated" in st.session_state and st.session_state["authenticated"]:
             }
             append_to_sheet("forum_data", new_message)
             st.success("Message posté avec succès !")
-            forum_data = read_sheet("forum_data")
-            st.rerun()
 
         st.subheader("Rechercher des messages")
         search_query = st.text_input("Rechercher par mot-clé ou tag")
@@ -201,7 +200,6 @@ if "authenticated" in st.session_state and st.session_state["authenticated"]:
 
         if search_button and search_query.strip():
             search_query = search_query.lower()
-            forum_data = read_sheet("forum_data")
             filtered_messages = forum_data[
                 forum_data["title"].str.lower().str.contains(search_query) |
                 forum_data["message"].str.lower().str.contains(search_query) |
@@ -354,9 +352,6 @@ if "authenticated" in st.session_state and st.session_state["authenticated"]:
             </div>
         """, unsafe_allow_html=True)
 
-
-
-
     with tab4:
         st.header("📝 Task Manager")
 
@@ -423,8 +418,6 @@ if "authenticated" in st.session_state and st.session_state["authenticated"]:
                         task_data.loc[task_data.index == index, "status"] = "Terminée"
                         update_sheet("task_data", task_data)
                         st.success("Tâche marquée comme terminée.")
-                        task_data = read_sheet("task_data")
-                        user_tasks = task_data[task_data["username"] == st.session_state["username"]]
 
 else:
     st.info("Veuillez vous connecter pour accéder à votre suivi.")
