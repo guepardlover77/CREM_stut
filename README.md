@@ -28,13 +28,13 @@ This Streamlit application provides a comprehensive interface for QCM tracking, 
 
 ## Technologies Used
 - **Streamlit**: For building the user interface.
-- **Google Sheets API**: For data storage and retrieval using the `streamlit_gsheets` module.
+- **Google Sheets API**: For data storage and retrieval using the `st-gsheets-connection` module.
 - **Pandas**: For data manipulation.
 - **Plotly**: For data visualization in the QCM tracking feature.
 
 ## Data Flow
-1. **Google Sheets Integration**: Data is read from and written to Google Sheets using the `streamlit_gsheets` connection.
-2. **Cache Management**: To ensure the most up-to-date data is displayed, the app clears the cache (`st.cache_data.clear()`) and reloads the page (`st.experimental_rerun()`) after any data modification.
+1. **Google Sheets Integration**: Data is read from and written to Google Sheets using the `st-gsheets-connection` connection.
+2. **Cache Management**: To ensure the most up-to-date data is displayed, the app clears the cache (`st.cache_data.clear()`) and reloads the page (`st.rerun()`) after any data modification.
 
 ## Installation
 
@@ -46,8 +46,8 @@ This Streamlit application provides a comprehensive interface for QCM tracking, 
 ### Steps
 1. Clone the repository:
    ```bash
-   git clone <repository-url>
-   cd <repository-folder>
+   git clone [<repository-url>](https://github.com/guepardlover77/CREM_stut.git)
+   cd CREM_stut
    ```
 
 2. Install dependencies:
@@ -61,12 +61,12 @@ This Streamlit application provides a comprehensive interface for QCM tracking, 
 
 4. Run the application:
    ```bash
-   streamlit run app.py
+   streamlit run tut_v2_CREM.py
    ```
 
 ## File Structure
 ```
-|-- app.py            # Main application code
+|-- tut_v2_CREM.py  # Main application code
 |-- forum_images/     # Directory for storing uploaded images
 |-- requirements.txt  # Python dependencies
 |-- credentials.json  # Google Sheets API credentials
@@ -82,7 +82,7 @@ This Streamlit application provides a comprehensive interface for QCM tracking, 
 4. Enjoy the psychedelic animations in the special tab.
 
 ## Troubleshooting
-- **Cache Issues**: Ensure `st.cache_data.clear()` and `st.experimental_rerun()` are functioning correctly to reload updated data.
+- **Cache Issues**: Ensure `st.cache_data.clear()` and `st.rerun()` are functioning correctly to reload updated data.
 - **Google Sheets Errors**: Verify API credentials and sheet permissions.
 
 ## Future Enhancements
