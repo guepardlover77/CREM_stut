@@ -3,45 +3,85 @@ from streamlit_gsheets import GSheetsConnection
 import pandas as pd
 import hashlib
 import os
-from datetime import datetime
+from datetime import datetime, timedelta
+import re
+from PIL import Image
+
+# --- Connexion Google Sheets & Config ---
+try:
+    conn = st.connection("gsheets", type=GSheetsConnection)
+except Exception as e:
+    st.error(f"Erreur de connexion Google Sheets : {e}")
+    st.stop()
 
 st.set_page_config(page_title="Tut-v2 | CREM", page_icon="logo-tut.png", initial_sidebar_state="expanded", menu_items={
     'Get Help': 'https://www.crem.fr/contact/',
     'Report a bug': "mailto:web@crem.fr",
     'About': "# Bienvenue dans votre espace Tutorat ! Faites en bon usage ;)"})
 
+try:
+    logo = Image.open("logo-tut.png")
+except Exception as e:
+    st.error(f"Erreur lors du chargement du logo : {e}")
+    logo = None
+
+st.markdown("""
+<style>
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
+.welcome-message {
+    margin-top: 2rem;
+    text-align: center;
+    font-size: 2em;
+    font-weight: bold;
+    animation: fadeIn 0.5s ease-in-out;
+}
+
+.sidebar-bottom {
+    position: fixed;
+    bottom: 20px;
+    width: 100%;
+    animation: fadeIn 0.5s ease-in-out;
+}
+</style>
+""", unsafe_allow_html=True)
 
 # --- Helper Functions ---
 def hash_password(password):
     return hashlib.sha256(password.encode()).hexdigest()
 
+def sanitize_input(input_string):
+    """Remove potentially malicious input."""
+    return re.sub(r'[<>/\\]', '', input_string)
 
 def save_image(image, username):
-    """
-    Save uploaded image to a permanent directory.
-    Validate file size and store image if within limit.
-    """
-    MAX_SIZE_MB = 2
-    forum_images_dir = "forum_images"
-    os.makedirs(forum_images_dir, exist_ok=True)  # Ensure directory exists
+    """Save uploaded image securely to a permanent directory."""
+    try:
+        MAX_SIZE_MB = 2
+        forum_images_dir = "forum_images"
+        os.makedirs(forum_images_dir, exist_ok=True)
 
-    # Check file size
-    image.seek(0, os.SEEK_END)
-    size_mb = image.tell() / (1024 * 1024)
-    image.seek(0)  # Reset pointer for reading
-    if size_mb > MAX_SIZE_MB:
-        raise ValueError(f"Le fichier est trop volumineux ({size_mb:.2f} Mo). La taille maximale est de {MAX_SIZE_MB} Mo.")
+        image.seek(0, os.SEEK_END)
+        size_mb = image.tell() / (1024 * 1024)
+        image.seek(0)
+        if size_mb > MAX_SIZE_MB:
+            raise ValueError(
+                f"Le fichier est trop volumineux ({size_mb:.2f} Mo). La taille maximale est de {MAX_SIZE_MB} Mo.")
 
-    # Save image
-    image_filename = f"{username}_{datetime.now().strftime('%Y%m%d%H%M%S')}.png"
-    image_path = os.path.join(forum_images_dir, image_filename)
-    with open(image_path, "wb") as f:
-        f.write(image.read())
-    return image_path
-
-
-# --- Connexion Google Sheets ---
-conn = st.connection("gsheets", type=GSheetsConnection)
+        image_filename = f"{username}_{datetime.now().strftime('%Y%m%d%H%M%S')}.png"
+        image_path = os.path.join(forum_images_dir, image_filename)
+        with open(image_path, "wb") as f:
+            f.write(image.read())
+        return image_path
+    except Exception as e:
+        raise RuntimeError(f"Erreur lors de l'enregistrement de l'image : {e}")
 
 
 # --- Fonctions Utilitaires ---
@@ -61,40 +101,108 @@ def append_to_sheet(sheet_name, row):
     data = pd.concat([data, pd.DataFrame([row])], ignore_index=True)
     update_sheet(sheet_name, data)
 
-with st.sidebar.expander("Créer un compte"):
-    new_username = st.text_input("Nouveau nom d'utilisateur")
-    new_password = st.text_input("Nouveau mot de passe", type="password")
-    create_account_button = st.button("Créer un compte")
+# --- Nouveau: Fonctions du tableau de bord ---
+def create_dashboard_metrics():
+    """Crée les métriques du tableau de bord dans la barre latérale."""
+    st.sidebar.subheader("📊 Tableau de bord")
 
-if create_account_button and new_username and new_password:
-    user_data = read_sheet("user_data")
-    if new_username in user_data["username"].values:
-        st.error("Ce nom d'utilisateur est déjà pris.")
+    # Lecture et calcul des statistiques
+    qcm_data = read_sheet("qcm_data")
+    forum_data = read_sheet("forum_data")
+    task_data = read_sheet("task_data")
+
+    user_qcm = qcm_data[qcm_data["username"] == st.session_state["username"]]
+    user_posts = forum_data[forum_data["username"] == st.session_state["username"]]
+    user_tasks = task_data[task_data["username"] == st.session_state["username"]]
+
+    # Métriques principales
+    col1, col2 = st.sidebar.columns(2)
+    total_qcm = user_qcm[["maths", "biologie", "sciences_humaines"]].sum().sum()
+    total_posts = len(user_posts)
+    col1.metric("Total QCM", f"{int(total_qcm)}")
+    col2.metric("Messages", f"{total_posts}")
+
+    # Tâches urgentes
+    st.sidebar.markdown("### ⚡ Tâches urgentes")
+    today = datetime.now().date()
+    urgent_tasks = user_tasks[
+        (user_tasks["status"] == "En cours") &
+        (pd.to_datetime(user_tasks["due_date"]).dt.date <= today + timedelta(days=3))
+        ]
+
+    if not urgent_tasks.empty:
+        for _, task in urgent_tasks.iterrows():
+            due_date = pd.to_datetime(task["due_date"]).date()
+            days_left = (due_date - today).days
+            status_color = "🔴" if days_left < 0 else "🟡" if days_left == 0 else "🟢"
+            st.sidebar.markdown(f"{status_color} **{task['title']}** - {days_left} jours")
     else:
-        hashed_password = hash_password(new_password)
-        new_user = {"username": new_username, "password": hashed_password}
-        append_to_sheet("user_data", new_user)
-        st.success("Compte créé avec succès ! Vous pouvez maintenant vous connecter.")
-        st.cache_data.clear()
-        st.rerun()
+        st.sidebar.info("Aucune tâche urgente ! 🎉")
+
+    # Progrès hebdomadaire
+    st.sidebar.markdown("### 📈 Progrès de la semaine")
+    week_start = today - timedelta(days=today.weekday())
+    week_qcm = user_qcm[pd.to_datetime(user_qcm["date"]).dt.date >= week_start]
+
+    if not week_qcm.empty:
+        weekly_total = week_qcm[["maths", "biologie", "sciences_humaines"]].sum().sum()
+        st.sidebar.progress(min(weekly_total / 50, 1.0), text=f"QCM: {int(weekly_total)}/50")
+    else:
+        st.sidebar.warning("Pas encore de QCM cette semaine")
+
+    # Dernière activité
+    st.sidebar.markdown("### 🕒 Dernière activité")
+    if not user_posts.empty:
+        last_post = user_posts.iloc[-1]
+        st.sidebar.markdown(f"Forum: {last_post['title'][:30]}...")
+    if not user_qcm.empty:
+        last_qcm = user_qcm.iloc[-1]
+        st.sidebar.markdown(f"QCM: {last_qcm['date']}")
 
 
-# --- Authentification ---
-st.sidebar.header("Connexion")
-username = st.sidebar.text_input("Nom d'utilisateur")
-password = st.sidebar.text_input("Mot de passe", type="password")
-login_button = st.sidebar.button("Se connecter")
+if not st.session_state.get("authenticated"):
+    # Logo centré pour la page de connexion
+    col1, col2, col3 = st.columns([1, 2, 1])
+    with col2:
+        if logo is not None:
+            st.image(logo, use_container_width=True, output_format="PNG")
 
+    st.sidebar.header("Connexion")
+    username = sanitize_input(st.sidebar.text_input("Nom d'utilisateur"))
+    password = st.sidebar.text_input("Mot de passe", type="password")
+    login_button = st.sidebar.button("Se connecter")
 
-if username and password and login_button:
-    st.session_state["authenticated"] = True
-    st.session_state["username"] = username
-    st.cache_data.clear()
-    st.rerun()
+    if username and password and login_button:
+        user_data = read_sheet("user_data")
+        if not user_data.empty and username in user_data["username"].values:
+            hashed_password = hash_password(password)
+            stored_password = user_data[user_data["username"] == username]["password"].values[0]
+            if hashed_password == stored_password:
+                st.session_state["authenticated"] = True
+                st.session_state["username"] = username
+                st.success("Connexion réussie !")
+                st.rerun()
+            else:
+                st.error("Nom d'utilisateur ou mot de passe incorrect.")
+        else:
+            st.error("Nom d'utilisateur ou mot de passe incorrect.")
+else:
+    st.markdown(f"""
+            <div class="welcome-message">
+                Bienvenue, {st.session_state['username']} !
+            </div>
+        """, unsafe_allow_html=True)
+
+    # Ajouter le logo
+    if logo is not None:
+        st.sidebar.markdown("<div class='sidebar-bottom'>", unsafe_allow_html=True)
+        st.sidebar.image(logo, use_container_width=True, output_format="PNG")
+        st.sidebar.markdown("</div>", unsafe_allow_html=True)
+
 
 # --- Application ---
-if "authenticated" in st.session_state and st.session_state["authenticated"]:
-    st.title(f"Bienvenue, {st.session_state['username']} !")
+if st.session_state.get("authenticated"):
+    create_dashboard_metrics()
 
     # Onglets
     tab1, tab2, tab3, tab4 = st.tabs(["📊 Suivi des QCM", "💬 Forum", "🐈 Chats", "📝 Task Manager"])
@@ -160,7 +268,6 @@ if "authenticated" in st.session_state and st.session_state["authenticated"]:
             )
             st.plotly_chart(fig, use_container_width=True)
 
-
     # --- Forum ---
     with tab2:
         st.header("Forum")
@@ -171,26 +278,15 @@ if "authenticated" in st.session_state and st.session_state["authenticated"]:
             title = st.text_input("Titre du message")
             message = st.text_area("Votre message")
             tags = st.text_input("Tags (séparés par des virgules)")
-            image = st.file_uploader("Ajouter une image (optionnel, max. 2 Mo)", type=["png", "jpg", "jpeg"])
             post_button = st.form_submit_button("Poster")
 
         if post_button and title.strip() and message.strip():
-            image_path = None
-            if image:
-                try:
-                    image_path = save_image(image, st.session_state["username"])
-                except ValueError as e:
-                    st.error(str(e))
-                else:
-                    st.success("Image téléchargée avec succès.")
-
             new_message = {
                 "timestamp": datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
                 "username": st.session_state["username"],
                 "title": title,
                 "message": message,
-                "tags": tags,
-                "image_path": image_path or "",
+                "tags": tags
             }
             append_to_sheet("forum_data", new_message)
             st.success("Message posté avec succès !")
@@ -201,6 +297,7 @@ if "authenticated" in st.session_state and st.session_state["authenticated"]:
 
         # Affichage des messages
         forum_data = read_sheet("forum_data")
+        user_data = read_sheet("user_data")  # Chargement de la feuille des utilisateurs
         filtered_messages = forum_data
 
         if search_button and search_query.strip():
@@ -217,12 +314,15 @@ if "authenticated" in st.session_state and st.session_state["authenticated"]:
         else:
             for _, row in filtered_messages.iterrows():
                 with st.expander(f"### {row['title']} (Posté le : {row['timestamp']})"):
-                    st.write(f"**Tags :** {row['tags']}")
                     st.write(row["message"])
-                    if pd.notna(row["image_path"]) and os.path.exists(row["image_path"]):
-                        st.image(row["image_path"], use_container_width=True)
-                    else:
-                        st.write("Pas d'image associée à ce message.")
+
+                    # Afficher le statut de l'utilisateur (tuteur/tutrice)
+                    username = row["username"]
+                    user_info = user_data[user_data["username"] == username]
+                    if not user_info.empty:
+                        tutor_status = user_info.iloc[0]["tuteur/tutrice"]
+                        if pd.notna(tutor_status):  # Vérifier si le statut est défini
+                            st.write(f"✨ **{'Tuteur' if tutor_status.lower() == 'tuteur' else 'Tutrice'}** ✨")
 
                     # Ajouter une réponse au message
                     st.subheader("Répondre au message")
@@ -249,7 +349,16 @@ if "authenticated" in st.session_state and st.session_state["authenticated"]:
                         st.info("Aucune réponse pour ce message.")
                     else:
                         for _, reply in message_replies.iterrows():
-                            st.write(f"- {reply['reply']} (**{reply['username']}**, le {reply['timestamp']})")
+                            reply_user = reply['username']
+                            reply_user_info = user_data[user_data["username"] == reply_user]
+                            if not reply_user_info.empty:
+                                reply_tutor_status = reply_user_info.iloc[0]["tuteur/tutrice"]
+                                role = "Tuteur" if reply_tutor_status.lower() == "✨ Tuteur ✨" else "✨ Tutrice ✨" if pd.notna(
+                                    reply_tutor_status) else "Utilisateur"
+                            else:
+                                role = "Utilisateur"
+
+                            st.write(f"- {reply['reply']} [**{role}**, le {reply['timestamp']}]")
 
     # --- Onglet ultra psychédélique ---
     with tab3:
