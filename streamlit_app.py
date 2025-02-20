@@ -14,10 +14,7 @@ except Exception as e:
     st.error(f"Erreur de connexion Google Sheets : {e}")
     st.stop()
 
-st.set_page_config(page_title="Tut-v2 | CREM", page_icon="logo-tut.png", initial_sidebar_state="expanded", menu_items={
-    'Get Help': 'https://www.crem.fr/contact/',
-    'Report a bug': "mailto:web@crem.fr",
-    'About': "# Bienvenue dans votre espace Tutorat ! Faites en bon usage ;)"})
+st.set_page_config(page_title="Tut-v2 | CREM", page_icon="logo-tut.png", initial_sidebar_state="expanded")
 
 try:
     logo = Image.open("logo-tut.png")
